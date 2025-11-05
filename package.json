@@ -1,0 +1,17 @@
+{
+  "name": "offline-cloudinary",
+  "version": "1.0.0",
+  "description": "An offline Cloudinary-like file manager for local uploads and deletion",
+  "main": "src/index.js",
+  "scripts": {
+    "test": "node src/index.js"
+  },
+  "keywords": ["cloudinary", "offline", "upload", "local-storage", "mock", "testing"],
+  "author": "Max Essien",
+  "files": ["src"],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Maxessien/offline-cloudinary"
+  },
+  "license": "MIT"
+}
