@@ -20,6 +20,7 @@ class OfflineCloudinary {
    * @returns Cloudinary-like response
    */
   async upload(tempFilePath, options = {}) {
+    await fs.access(tempFilePath).catch(()=>{throw new Error(`File not found: ${tempFilePath}`)})
     const folder = options.folder || "";
     const name = options?.fileName || crypto.randomUUID();
     const fullFolderPath = path.join(this.rootPath, folder);
@@ -45,7 +46,7 @@ class OfflineCloudinary {
     // Return Cloudinary-like response
     return {
       asset_id: crypto.randomUUID(),
-      public_id: fileName,
+      public_id: finalPath,
       version: Date.now(),
       version_id: crypto.randomUUID(),
       signature: crypto.randomBytes(16).toString("hex"),
@@ -77,19 +78,16 @@ class OfflineCloudinary {
   }
 
   /**
-   * Delete every files and folder in the local offline cloudinary storage
+   * Destroy every files and folder in the local offline cloudinary storage
    * @returns {object} {result: ok} if successful
    */
   async clearStorage(){
-    await fs.rm(this.rootPath)
+    await fs.rm(this.rootPath, {recursive: true, force: true})
+    await fs.mkdir(this.rootPath)
     return {result: "ok"}
   }
 }
 
 const offlineCloudinary = new OfflineCloudinary()
-
-export const upload = offlineCloudinary.upload()
-export const destroy = offlineCloudinary.destroy()
-export const clearStorage = offlineCloudinary.clearStorage()
 
 export default offlineCloudinary;
