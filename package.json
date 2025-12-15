@@ -1,8 +1,8 @@
 {
   "name": "offline-cloudinary",
-  "version": "1.0.0",
-  "description": "An offline Cloudinary-like file manager for local uploads and deletions.",
-  "main": "src/utils/OfflineCloudinary.js",
+  "version": "2.0.0",
+  "description": "An offline Cloudinary-like file manager with HTTP server emulator for local uploads, deletions, and testing without internet access.",
+  "main": "index.js",
   "type": "module",
   "keywords": [
     "cloudinary",
@@ -12,7 +12,12 @@
     "mock",
     "testing",
     "file-system",
-    "nodejs"
+    "nodejs",
+    "express",
+    "server",
+    "emulator",
+    "http",
+    "file-upload"
   ],
   "author": "Max Essien",
   "license": "MIT",
@@ -20,12 +25,25 @@
     "type": "git",
     "url": "https://github.com/MaxEssien/offline-cloudinary"
   },
-  "files": ["src"],
+  "files": [
+    "src",
+    "index.js",
+    "README.md",
+    "CHANGELOG.md",
+    "LICENSE"
+  ],
   "scripts": {
-    "test": "node src/utils/OfflineCloudinary.js"
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "engines": {
+    "node": ">=18.0.0"
   },
   "bugs": {
     "url": "https://github.com/MaxEssien/offline-cloudinary/issues"
   },
-  "homepage": "https://github.com/MaxEssien/offline-cloudinary#readme"
+  "homepage": "https://github.com/MaxEssien/offline-cloudinary#readme",
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^5.2.1"
+  }
 }

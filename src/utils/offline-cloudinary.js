@@ -5,9 +5,7 @@ import crypto from "crypto";
 class OfflineCloudinary {
   constructor() {
     if (!process.env.CLOUDINARY_OFFLINE_PATH) {
-      throw new Error(
-        "Please set CLOUDINARY_OFFLINE_PATH in your .env file"
-      );
+      throw new Error("Please set CLOUDINARY_OFFLINE_PATH in your .env file");
     }
     this.rootPath = process.env.CLOUDINARY_OFFLINE_PATH;
   }
@@ -19,7 +17,12 @@ class OfflineCloudinary {
    * @returns Cloudinary-like response
    */
   async upload(tempFilePath, options = {}) {
-    await fs.access(tempFilePath).catch(()=>{throw new Error(`File not found: ${tempFilePath}`)})
+    const portNumber = process.env.CLOUDINARY_OFFLINE_PORT;
+    if (!portNumber)
+      throw new Error("Please set CLOUDINARY_OFFLINE_PORT in your .env file");
+    await fs.access(tempFilePath).catch(() => {
+      throw new Error(`File not found: ${tempFilePath}`);
+    });
     const folder = options.folder || "";
     const name = options?.fileName || crypto.randomUUID();
     const fullFolderPath = path.join(this.rootPath, folder);
@@ -29,7 +32,7 @@ class OfflineCloudinary {
 
     // Generate unique filename
     const ext = path.extname(tempFilePath);
-    if (!ext?.trim()) throw new Error("Unsupported file type")
+    if (!ext?.trim()) throw new Error("Unsupported file type");
     const fileName = name + ext;
 
     const finalPath = path.join(fullFolderPath, fileName);
@@ -42,10 +45,19 @@ class OfflineCloudinary {
 
     const now = new Date().toISOString();
 
+    const uploadId = crypto.randomUUID();
+
+    const data = await fs.readFile("uploads.json", "utf-8");
+
+    const mappings = JSON.parse(data);
+    mappings[uploadId] = finalPath;
+
+    await fs.writeFile("uploads.json", JSON.stringify(mappings));
+
     // Return Cloudinary-like response
     return {
       asset_id: crypto.randomUUID(),
-      public_id: finalPath,
+      public_id: uploadId,
       version: Date.now(),
       version_id: crypto.randomUUID(),
       signature: crypto.randomBytes(16).toString("hex"),
@@ -60,8 +72,8 @@ class OfflineCloudinary {
       type: "upload",
       etag: crypto.randomBytes(8).toString("hex"),
       placeholder: false,
-      url: finalPath,
-      secure_url: finalPath,
+      url: `http://localhost:${portNumber}/file/${uploadId}`,
+      secure_url: `http://localhost:${portNumber}/file/${uploadId}`,
     };
   }
 
@@ -71,8 +83,10 @@ class OfflineCloudinary {
    * @returns {object} { result: "ok" } if deleted or { result: "not found" }
    */
   async destroy(public_id) {
-    const filePath = public_id;
-    await fs.unlink(filePath);
+    const uploadId = public_id;
+    const data = await fs.readFile("uploads.json", "utf-8");
+    const mappings = JSON.parse(data);
+    await fs.unlink(mappings[uploadId]);
     return { result: "ok" };
   }
 
@@ -80,13 +94,13 @@ class OfflineCloudinary {
    * Destroy every files and folder in the local offline cloudinary storage
    * @returns {object} {result: ok} if successful
    */
-  async clearStorage(){
-    await fs.rm(this.rootPath, {recursive: true, force: true})
-    await fs.mkdir(this.rootPath)
-    return {result: "ok"}
+  async clearStorage() {
+    await fs.rm(this.rootPath, { recursive: true, force: true });
+    await fs.mkdir(this.rootPath);
+    return { result: "ok" };
   }
 }
 
-const offlineCloudinary = new OfflineCloudinary()
+const offlineCloudinary = new OfflineCloudinary();
 
 export default offlineCloudinary;
