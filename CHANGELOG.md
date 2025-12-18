@@ -87,7 +87,7 @@ const result = await offlineCloudinary.upload("./photo.jpg");
 const result = await offlineCloudinary.upload("./photo.jpg");
 // result.public_id is now a UUID like "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
 // result.url is "http://localhost:3000/file/a1b2c3d4-e5f6-7890-abcd-ef1234567890"
-// result.secure_url is the actual file path
+// result.secure_url is "http://localhost:3000/file/a1b2c3d4-e5f6-7890-abcd-ef1234567890"
 ```
 
 #### 4. Update destroy calls
