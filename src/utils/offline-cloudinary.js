@@ -8,6 +8,29 @@ class OfflineCloudinary {
       throw new Error("Please set CLOUDINARY_OFFLINE_PATH in your .env file");
     }
     this.rootPath = process.env.CLOUDINARY_OFFLINE_PATH;
+    this.initialised = false;
+    this.mappingsInMemory = { isDirty: false };
+    this.syncActive = false;
+  }
+
+  async initialise() {
+    if (this.initialised) return;
+    const filePath = path.join(this.rootPath, "uploads.json");
+    await fs.access(filePath).catch(() => fs.writeFile(filePath, "{}"));
+    const data = await fs.readFile(filePath, "utf-8");
+    this.mappingsInMemory = { ...JSON.parse(data), isDirty: false };
+    this.initialised = true;
+    this.syncActive = setInterval(() => this.syncToDisk(), 500);
+  }
+
+  async syncToDisk() {
+    if (!this.mappingsInMemory.isDirty) return;
+    const mappingsCopy = { ...this.mappingsInMemory, isDirty: false };
+    await fs.writeFile(
+      path.join(this.rootPath, "uploads.json"),
+      JSON.stringify(mappingsCopy)
+    );
+    this.mappingsInMemory.isDirty = false;
   }
 
   /**
@@ -17,9 +40,8 @@ class OfflineCloudinary {
    * @returns Cloudinary-like response
    */
   async upload(tempFilePath, options = {}) {
-    const portNumber = process.env.CLOUDINARY_OFFLINE_PORT;
-    if (!portNumber)
-      throw new Error("Please set CLOUDINARY_OFFLINE_PORT in your .env file");
+    await this.initialise();
+    const portNumber = process.env.CLOUDINARY_OFFLINE_PORT || 3500;
     await fs.access(tempFilePath).catch(() => {
       throw new Error(`File not found: ${tempFilePath}`);
     });
@@ -47,12 +69,8 @@ class OfflineCloudinary {
 
     const uploadId = crypto.randomUUID();
 
-    const data = await fs.readFile("uploads.json", "utf-8");
-
-    const mappings = JSON.parse(data);
-    mappings[uploadId] = finalPath;
-
-    await fs.writeFile("uploads.json", JSON.stringify(mappings));
+    this.mappingsInMemory[uploadId] = finalPath;
+    this.mappingsInMemory.isDirty = true;
 
     // Return Cloudinary-like response
     return {
@@ -83,10 +101,14 @@ class OfflineCloudinary {
    * @returns {object} { result: "ok" } if deleted or { result: "not found" }
    */
   async destroy(public_id) {
+    await this.initialise();
     const uploadId = public_id;
-    const data = await fs.readFile("uploads.json", "utf-8");
-    const mappings = JSON.parse(data);
-    await fs.unlink(mappings[uploadId]);
+    const filePath = this.mappingsInMemory[uploadId];
+    if (filePath) {
+      await fs.unlink(filePath);
+      delete this.mappingsInMemory[uploadId];
+      this.mappingsInMemory.isDirty = true;
+    }
     return { result: "ok" };
   }
 
@@ -97,6 +119,7 @@ class OfflineCloudinary {
   async clearStorage() {
     await fs.rm(this.rootPath, { recursive: true, force: true });
     await fs.mkdir(this.rootPath);
+    this.mappingsInMemory = { isDirty: false };
     return { result: "ok" };
   }
 }

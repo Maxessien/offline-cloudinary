@@ -5,6 +5,31 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.1.0] - 2025-12-18
+
+### Added
+
+- **In-memory caching system**: File mappings are now cached in memory for dramatically faster operations
+- **Dirty flag tracking**: Efficient cache invalidation system that only syncs to disk when changes occur
+- **Automatic periodic sync**: Background task (500ms intervals) automatically persists cache changes to disk
+- **Graceful shutdown**: Process cleanup handler that ensures all in-memory changes are synced to disk on exit
+
+### Changed
+
+- `upload()` and `destroy()` operations now use in-memory cache for improved performance
+- `initialise()` method now handles lazy initialization and cache management
+- Improved resource management with automatic interval cleanup
+
+### Performance
+
+- Significantly reduced disk I/O operations
+- Faster file operations through in-memory lookups
+- Minimal overhead with periodic batch writes to disk
+
+### Fully Backward Compatible
+
+All v2.0.0 APIs remain unchanged. The caching system is transparent to end users.
+
 ## [2.0.0] - 2025-12-15
 
 ### Breaking Changes
