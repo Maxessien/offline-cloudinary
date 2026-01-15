@@ -40,7 +40,6 @@ class OfflineCloudinary {
    * @returns Cloudinary-like response
    */
   async upload(tempFilePath, options = {}) {
-    await this.initialise();
     const portNumber = process.env.CLOUDINARY_OFFLINE_PORT || 3500;
     await fs.access(tempFilePath).catch(() => {
       throw new Error(`File not found: ${tempFilePath}`);
@@ -101,7 +100,6 @@ class OfflineCloudinary {
    * @returns {object} { result: "ok" } if deleted or { result: "not found" }
    */
   async destroy(public_id) {
-    await this.initialise();
     const uploadId = public_id;
     const filePath = this.mappingsInMemory[uploadId];
     if (filePath) {

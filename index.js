@@ -9,10 +9,11 @@ app.use(cors());
 
 app.use("/file", fileRoutes);
 
-const startEmulator = () => {
+const startEmulator = async() => {
   const portNumber = process.env.CLOUDINARY_OFFLINE_PORT;
   if (!portNumber)
     throw new Error("Please set CLOUDINARY_OFFLINE_PORT in your .env file");
+  await offlineCloudinary.initialise()
   app.listen(portNumber, () =>{
     console.log("Offline Cloudinary running on port", portNumber)
     process.on("SIGINT", async()=>{
