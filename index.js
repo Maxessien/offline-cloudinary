@@ -1,6 +1,6 @@
 import express from "express";
 import fileRoutes from "./src/routes/fileRoutes.js";
-import offlineCloudinary from "./src/utils/offline-cloudinary";
+import offlineCloudinary from "./src/utils/offline-cloudinary.js";
 import cors from "cors";
 
 const app = express();
