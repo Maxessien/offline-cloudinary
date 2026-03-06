@@ -1,8 +1,9 @@
 {
   "name": "offline-cloudinary",
-  "version": "2.1.2",
+  "version": "2.1.3",
   "description": "An offline Cloudinary-like file manager with HTTP server emulator for local uploads, deletions, and testing without internet access.",
   "main": "index.js",
+  "types": "index.d.ts",
   "type": "module",
   "keywords": [
     "cloudinary",
@@ -28,6 +29,7 @@
   "files": [
     "src",
     "index.js",
+    "index.d.ts",
     "README.md",
     "CHANGELOG.md",
     "LICENSE"
