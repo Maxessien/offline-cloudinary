@@ -12,7 +12,7 @@ export interface UploadOptions {
   use_filename_as_display_name?: boolean;
   unique_filename?: boolean;
   filename_override?: string;
-  resource_type: ResourceType;
+  resource_type?: ResourceType;
   type?: string;
   fileName?: string; // Custom field for offline use
 
@@ -59,7 +59,9 @@ export interface UploadOptions {
 
   // Video specific
   auto_chaptering?: boolean;
-  auto_transcription?: boolean | { original_language?: string; translate?: string[] };
+  auto_transcription?:
+    | boolean
+    | { original_language?: string; translate?: string[] };
   auto_video_details?: boolean;
 
   // Manipulations and transformations
@@ -118,6 +120,6 @@ export interface DestroyResponse {
 }
 
 export interface MappingsInMemory {
-  [key: string]: string | boolean;
+  uploads: { [key: string]: string | boolean };
   isDirty: boolean;
 }

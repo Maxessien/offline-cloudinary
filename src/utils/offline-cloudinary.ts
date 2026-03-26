@@ -26,12 +26,13 @@ class OfflineCloudinary {
     }
     this.rootPath = process.env.CLOUDINARY_OFFLINE_PATH;
     this.initialised = false;
-    this.mappingsInMemory = { isDirty: false };
+    this.mappingsInMemory = { isDirty: false, uploads: {} };
     this.syncActive = false;
   }
 
   async initialise(): Promise<void> {
     if (this.initialised) return;
+    await fs.mkdir(this.rootPath, {recursive: true})
     const filePath = path.join(this.rootPath, "uploads.json");
     await fs.access(filePath).catch(() => fs.writeFile(filePath, "{}"));
     const data = await fs.readFile(filePath, "utf-8");
@@ -58,13 +59,14 @@ class OfflineCloudinary {
    */
   async upload(
     tempFilePath: string,
-    options: UploadOptions = { resource_type: "image" },
+    options: UploadOptions,
   ): Promise<CloudinaryResponse> {
     const portNumber = process.env.CLOUDINARY_OFFLINE_PORT || 3500;
     await fs.access(tempFilePath).catch(() => {
       throw new Error(`File not found: ${tempFilePath}`);
     });
-    const isValid = await checkFileValidity(tempFilePath, options.resource_type)
+    const resourceTypeCleaned: ResourceType = options.resource_type || "image"
+    const isValid = await checkFileValidity(tempFilePath, resourceTypeCleaned)
     if (!isValid) throw new Error("Invalid resource type")
     const folder = options.folder || "";
     const name = options?.fileName || crypto.randomUUID();
@@ -92,7 +94,7 @@ class OfflineCloudinary {
 
     const uploadId = crypto.randomUUID();
 
-    this.mappingsInMemory[uploadId] = finalPath;
+    this.mappingsInMemory.uploads[uploadId] = finalPath;
     this.mappingsInMemory.isDirty = true;
 
     const info = await getFileInfo(finalPath);
@@ -108,13 +110,13 @@ class OfflineCloudinary {
       height: info.streams?.[0]?.height || null,
       format: fileType?.ext ?? ext.replace(".", ""),
       resource_type:
-        options.resource_type !== "auto"
-          ? options.resource_type
+        resourceTypeCleaned !== "auto"
+          ? resourceTypeCleaned
           : ["image", "video"].includes(
                 fileType?.mime.split("/")?.[0] ?? "not exist",
               )
             ? (fileType?.mime.split("/")?.[0] as "image" | "video")
-            : options.resource_type,
+            : resourceTypeCleaned,
       created_at: now,
       tags: [],
       pages: 1,
@@ -130,15 +132,14 @@ class OfflineCloudinary {
   /**
    * Destroy a file by public_id
    * @param public_id - The public ID of the file to delete
-   * @returns { result: "ok" } if deleted or { result: "not found" }
    */
   async destroy(public_id: string): Promise<DestroyResponse> {
     const uploadId = public_id;
-    const filePath = this.mappingsInMemory[uploadId];
+    const filePath = this.mappingsInMemory.uploads[uploadId];
     if (!existsSync(filePath as string)) return { result: "not found" };
     if (filePath && existsSync(filePath as string)) {
       await fs.unlink(filePath as string);
-      delete this.mappingsInMemory[uploadId];
+      delete this.mappingsInMemory.uploads[uploadId];
       this.mappingsInMemory.isDirty = true;
     }
     return { result: "ok" };
@@ -151,7 +152,7 @@ class OfflineCloudinary {
   async clearStorage(): Promise<{ result: string }> {
     await fs.rm(this.rootPath, { recursive: true, force: true });
     await fs.mkdir(this.rootPath);
-    this.mappingsInMemory = { isDirty: false };
+    this.mappingsInMemory = { ...this.mappingsInMemory, isDirty: false };
     return { result: "ok" };
   }
 }

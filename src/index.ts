@@ -17,9 +17,15 @@ const startEmulator = async (): Promise<void> => {
   await offlineCloudinary.initialise();
   app.listen(portNumber, () => {
     console.log("Offline Cloudinary running on port", portNumber);
-    process.on("SIGINT", async () => {
+    process.on("SIGINT", () => {
       if (offlineCloudinary.syncActive) clearInterval(offlineCloudinary.syncActive);
-      await offlineCloudinary.syncToDisk();
+      offlineCloudinary.syncToDisk().then(()=>{
+        console.log("Sync successful, Exiting...")
+        process.exit(0)
+      }).catch(()=>{
+        console.log("Sync incomplete")
+        process.exit(1)
+      })
     });
   });
 };
