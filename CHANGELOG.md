@@ -5,6 +5,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.2.0] - 2026-03-26
+
+### Added
+- Added TypeScript source layout with new modules in `src/` (`index.ts`, `types`, and `utils/fileHandlers.ts`)
+- Added richer upload response metadata by probing uploaded files for dimensions (`width`/`height`)
+- Added resource type detection and validation using `file-type`
+
+### Changed
+- Refactored package distribution to compile output in `dist/` (`main` and `types` now point to `dist/index.js` and `dist/index.d.ts`)
+- Migrated implementation files from JavaScript to TypeScript and introduced `tsconfig.json` build pipeline
+- Updated dependencies to support metadata probing and type-safe builds (`ffprobe`, `ffprobe-static`, `file-type`, TypeScript tooling)
+
+### Fixed
+- Improved `destroy()` behavior to return `{ result: "not found" }` when the file is missing
+- Improved `clearStorage()` to reset in-memory upload mappings after clearing storage
+
 ## [2.1.3] - 2026-03-07
 
 ### Added
@@ -133,3 +149,5 @@ await offlineCloudinary.destroy(uploadResult.public_id); // Pass the UUID
 
 [2.0.0]: https://github.com/MaxEssien/offline-cloudinary/compare/v1.0.0...v2.0.0
 [1.0.0]: https://github.com/MaxEssien/offline-cloudinary/releases/tag/v1.0.0
+[2.2.0]: https://github.com/MaxEssien/offline-cloudinary/compare/v2.1.3...2.2.0
+[2.1.3]: https://github.com/MaxEssien/offline-cloudinary/compare/v2.1.2...v2.1.3
