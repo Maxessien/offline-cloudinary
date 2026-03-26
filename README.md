@@ -133,8 +133,8 @@ A Cloudinary-like object containing:
   version: 1702654321000,          // Timestamp
   version_id: "uuid-v4",
   signature: "hex-string",
-  width: null,
-  height: null,
+  width: 1920,                     // May be null if dimensions are unavailable
+  height: 1080,                    // May be null if dimensions are unavailable
   format: "jpg",                   // File extension
   resource_type: "image",
   created_at: "2025-12-15T10:30:00.000Z",
@@ -145,7 +145,7 @@ A Cloudinary-like object containing:
   etag: "hex-string",
   placeholder: false,
   url: "http://localhost:3000/file/{uuid}",      // HTTP URL to access file
-  secure_url: "/path/to/actual/file.jpg"         // Actual file system path
+  secure_url: "http://localhost:3000/file/{uuid}" // Mirrors URL in offline mode
 }
 ```
 
@@ -174,6 +174,8 @@ Deletes a file from your offline storage using its UUID.
 **Returns**
 ```js
 { result: "ok" }
+// or
+{ result: "not found" }
 ```
 
 **Example:**

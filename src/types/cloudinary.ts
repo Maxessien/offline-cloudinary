@@ -120,6 +120,6 @@ export interface DestroyResponse {
 }
 
 export interface MappingsInMemory {
-  uploads: { [key: string]: string | boolean };
+  uploads: { [key: string]: string };
   isDirty: boolean;
 }

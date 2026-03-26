@@ -32,7 +32,7 @@ class OfflineCloudinary {
 
   async initialise(): Promise<void> {
     if (this.initialised) return;
-    await fs.mkdir(this.rootPath, {recursive: true})
+    await fs.mkdir(this.rootPath, { recursive: true });
     const filePath = path.join(this.rootPath, "uploads.json");
     await fs.access(filePath).catch(() => fs.writeFile(filePath, "{}"));
     const data = await fs.readFile(filePath, "utf-8");
@@ -65,9 +65,9 @@ class OfflineCloudinary {
     await fs.access(tempFilePath).catch(() => {
       throw new Error(`File not found: ${tempFilePath}`);
     });
-    const resourceTypeCleaned: ResourceType = options.resource_type || "image"
-    const isValid = await checkFileValidity(tempFilePath, resourceTypeCleaned)
-    if (!isValid) throw new Error("Invalid resource type")
+    const resourceTypeCleaned: ResourceType = options.resource_type || "image";
+    const isValid = await checkFileValidity(tempFilePath, resourceTypeCleaned);
+    if (!isValid) throw new Error("Invalid resource type");
     const folder = options.folder || "";
     const name = options?.fileName || crypto.randomUUID();
     const fullFolderPath = path.join(this.rootPath, folder);
@@ -78,7 +78,7 @@ class OfflineCloudinary {
     // Generate unique filename
     const ext = path.extname(tempFilePath);
     const fileType = await fileTypeFromFile(tempFilePath);
-    if (!ext?.trim() && !fileType?.ext)
+    if (!ext?.trim() || !fileType?.ext)
       throw new Error("Unsupported file type");
     const fileName = name + ext;
 
@@ -136,9 +136,10 @@ class OfflineCloudinary {
   async destroy(public_id: string): Promise<DestroyResponse> {
     const uploadId = public_id;
     const filePath = this.mappingsInMemory.uploads[uploadId];
-    if (!existsSync(filePath as string)) return { result: "not found" };
-    if (filePath && existsSync(filePath as string)) {
-      await fs.unlink(filePath as string);
+    if (!filePath?.trim()) return { result: "not found" };
+    if (!existsSync(filePath)) return { result: "not found" };
+    if (filePath && existsSync(filePath)) {
+      await fs.unlink(filePath);
       delete this.mappingsInMemory.uploads[uploadId];
       this.mappingsInMemory.isDirty = true;
     }
