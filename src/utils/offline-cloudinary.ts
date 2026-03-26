@@ -84,6 +84,8 @@ class OfflineCloudinary {
 
     const finalPath = path.join(fullFolderPath, fileName);
 
+    const info = await getFileInfo(finalPath);
+
     // Copy file from temp path
     await fs.copyFile(tempFilePath, finalPath);
 
@@ -96,8 +98,6 @@ class OfflineCloudinary {
 
     this.mappingsInMemory.uploads[uploadId] = finalPath;
     this.mappingsInMemory.isDirty = true;
-
-    const info = await getFileInfo(finalPath);
 
     // Return Cloudinary-like response
     return {
@@ -153,7 +153,7 @@ class OfflineCloudinary {
   async clearStorage(): Promise<{ result: string }> {
     await fs.rm(this.rootPath, { recursive: true, force: true });
     await fs.mkdir(this.rootPath);
-    this.mappingsInMemory = { ...this.mappingsInMemory, isDirty: false };
+    this.mappingsInMemory = { uploads: {}, isDirty: false };
     return { result: "ok" };
   }
 }
