@@ -1,20 +1,38 @@
-import fs from "fs/promises";
-import path from "path";
 import crypto from "crypto";
+import { existsSync } from "fs";
+import fs from "fs/promises";
+import {} from "file-type";
+import path from "path";
+
+import type {
+  CloudinaryResponse,
+  DestroyResponse,
+  MappingsInMemory,
+  ResourceType,
+  UploadOptions,
+} from "../types/cloudinary.js";
+import { checkFileValidity, getFileInfo } from "./fileHandlers.js";
+import { fileTypeFromFile } from "file-type";
 
 class OfflineCloudinary {
+  rootPath: string;
+  initialised: boolean;
+  mappingsInMemory: MappingsInMemory;
+  syncActive: NodeJS.Timeout | false;
+
   constructor() {
     if (!process.env.CLOUDINARY_OFFLINE_PATH) {
       throw new Error("Please set CLOUDINARY_OFFLINE_PATH in your .env file");
     }
     this.rootPath = process.env.CLOUDINARY_OFFLINE_PATH;
     this.initialised = false;
-    this.mappingsInMemory = { isDirty: false };
+    this.mappingsInMemory = { isDirty: false, uploads: {} };
     this.syncActive = false;
   }
 
-  async initialise() {
+  async initialise(): Promise<void> {
     if (this.initialised) return;
+    await fs.mkdir(this.rootPath, { recursive: true });
     const filePath = path.join(this.rootPath, "uploads.json");
     await fs.access(filePath).catch(() => fs.writeFile(filePath, "{}"));
     const data = await fs.readFile(filePath, "utf-8");
@@ -23,27 +41,33 @@ class OfflineCloudinary {
     this.syncActive = setInterval(() => this.syncToDisk(), 500);
   }
 
-  async syncToDisk() {
+  async syncToDisk(): Promise<void> {
     if (!this.mappingsInMemory.isDirty) return;
     const mappingsCopy = { ...this.mappingsInMemory, isDirty: false };
-    await fs.writeFile(
-      path.join(this.rootPath, "uploads.json"),
-      JSON.stringify(mappingsCopy)
-    );
+    const tempPath = path.join(this.rootPath, "uploads.json.tmp");
+    const originalPath = path.join(this.rootPath, "uploads.json");
+    await fs.writeFile(tempPath, JSON.stringify(mappingsCopy));
+    await fs.rename(tempPath, originalPath);
     this.mappingsInMemory.isDirty = false;
   }
 
   /**
    * Upload a file
-   * @param {string} tempFilePath - Path to the temporary file
-   * @param {object} options - { folder: 'nested/folder/path' }
+   * @param tempFilePath - Path to the temporary file
+   * @param options - { folder: 'nested/folder/path' }
    * @returns Cloudinary-like response
    */
-  async upload(tempFilePath, options = {}) {
+  async upload(
+    tempFilePath: string,
+    options: UploadOptions,
+  ): Promise<CloudinaryResponse> {
     const portNumber = process.env.CLOUDINARY_OFFLINE_PORT || 3500;
     await fs.access(tempFilePath).catch(() => {
       throw new Error(`File not found: ${tempFilePath}`);
     });
+    const resourceTypeCleaned: ResourceType = options.resource_type || "image";
+    const isValid = await checkFileValidity(tempFilePath, resourceTypeCleaned);
+    if (!isValid) throw new Error("Invalid resource type");
     const folder = options.folder || "";
     const name = options?.fileName || crypto.randomUUID();
     const fullFolderPath = path.join(this.rootPath, folder);
@@ -53,10 +77,14 @@ class OfflineCloudinary {
 
     // Generate unique filename
     const ext = path.extname(tempFilePath);
-    if (!ext?.trim()) throw new Error("Unsupported file type");
+    const fileType = await fileTypeFromFile(tempFilePath);
+    if (!ext?.trim() || !fileType?.ext)
+      throw new Error("Unsupported file type");
     const fileName = name + ext;
 
     const finalPath = path.join(fullFolderPath, fileName);
+
+    const info = await getFileInfo(finalPath);
 
     // Copy file from temp path
     await fs.copyFile(tempFilePath, finalPath);
@@ -68,7 +96,7 @@ class OfflineCloudinary {
 
     const uploadId = crypto.randomUUID();
 
-    this.mappingsInMemory[uploadId] = finalPath;
+    this.mappingsInMemory.uploads[uploadId] = finalPath;
     this.mappingsInMemory.isDirty = true;
 
     // Return Cloudinary-like response
@@ -78,10 +106,17 @@ class OfflineCloudinary {
       version: Date.now(),
       version_id: crypto.randomUUID(),
       signature: crypto.randomBytes(16).toString("hex"),
-      width: null,
-      height: null,
-      format: ext.replace(".", ""),
-      resource_type: "image",
+      width: info.streams?.[0]?.width || null,
+      height: info.streams?.[0]?.height || null,
+      format: fileType?.ext ?? ext.replace(".", ""),
+      resource_type:
+        resourceTypeCleaned !== "auto"
+          ? resourceTypeCleaned
+          : ["image", "video"].includes(
+                fileType?.mime.split("/")?.[0] ?? "not exist",
+              )
+            ? (fileType?.mime.split("/")?.[0] as "image" | "video")
+            : resourceTypeCleaned,
       created_at: now,
       tags: [],
       pages: 1,
@@ -96,15 +131,16 @@ class OfflineCloudinary {
 
   /**
    * Destroy a file by public_id
-   * @param {string} public_id
-   * @returns {object} { result: "ok" } if deleted or { result: "not found" }
+   * @param public_id - The public ID of the file to delete
    */
-  async destroy(public_id) {
+  async destroy(public_id: string): Promise<DestroyResponse> {
     const uploadId = public_id;
-    const filePath = this.mappingsInMemory[uploadId];
-    if (filePath) {
+    const filePath = this.mappingsInMemory.uploads[uploadId];
+    if (!filePath?.trim()) return { result: "not found" };
+    if (!existsSync(filePath)) return { result: "not found" };
+    if (filePath && existsSync(filePath)) {
       await fs.unlink(filePath);
-      delete this.mappingsInMemory[uploadId];
+      delete this.mappingsInMemory.uploads[uploadId];
       this.mappingsInMemory.isDirty = true;
     }
     return { result: "ok" };
@@ -112,12 +148,12 @@ class OfflineCloudinary {
 
   /**
    * Destroy every files and folder in the local offline cloudinary storage
-   * @returns {object} {result: ok} if successful
+   * @returns {result: ok} if successful
    */
-  async clearStorage() {
+  async clearStorage(): Promise<{ result: string }> {
     await fs.rm(this.rootPath, { recursive: true, force: true });
     await fs.mkdir(this.rootPath);
-    this.mappingsInMemory = { isDirty: false };
+    this.mappingsInMemory = { uploads: {}, isDirty: false };
     return { result: "ok" };
   }
 }
