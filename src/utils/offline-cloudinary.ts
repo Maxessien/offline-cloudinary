@@ -1,9 +1,10 @@
 import crypto from "crypto";
+import { } from "file-type";
 import { existsSync } from "fs";
 import fs from "fs/promises";
-import {} from "file-type";
 import path from "path";
 
+import { fileTypeFromFile } from "file-type";
 import type {
   CloudinaryResponse,
   DestroyResponse,
@@ -12,42 +13,62 @@ import type {
   UploadOptions,
 } from "../types/cloudinary.js";
 import { checkFileValidity, getFileInfo } from "./fileHandlers.js";
-import { fileTypeFromFile } from "file-type";
 
 class OfflineCloudinary {
-  rootPath: string;
-  initialised: boolean;
-  mappingsInMemory: MappingsInMemory;
+  private rootPath: string | null;
+  private initialised: boolean;
+  private mappingsInMemory: MappingsInMemory;
+  private port: number | null
   syncActive: NodeJS.Timeout | false;
 
-  constructor() {
-    if (!process.env.CLOUDINARY_OFFLINE_PATH) {
-      throw new Error("Please set CLOUDINARY_OFFLINE_PATH in your .env file");
-    }
-    this.rootPath = process.env.CLOUDINARY_OFFLINE_PATH;
+  constructor(port?: number) {
+    this.rootPath = process.env.CLOUDINARY_OFFLINE_PATH || null;
     this.initialised = false;
     this.mappingsInMemory = { isDirty: false, uploads: {} };
     this.syncActive = false;
+    this.port = port || null
+  }
+
+  setRootPath(path: string): void{
+    this.rootPath = path
+  }
+
+  setPort(port: number){
+    this.port = port
   }
 
   async initialise(): Promise<void> {
+    if(!this.rootPath) {
+      throw new Error("Cloudinary local storage root path not set")
+    }
+
     if (this.initialised) return;
+
     await fs.mkdir(this.rootPath, { recursive: true });
     const filePath = path.join(this.rootPath, "uploads.json");
-    await fs.access(filePath).catch(() => fs.writeFile(filePath, "{}"));
+    await fs.access(filePath).catch(() => fs.writeFile(filePath, JSON.stringify({ isDirty: false, uploads: {} })));
+
     const data = await fs.readFile(filePath, "utf-8");
-    this.mappingsInMemory = { ...JSON.parse(data), isDirty: false };
+    
+    this.mappingsInMemory = { uploads: JSON.parse(data).uploads || {}, isDirty: false };
     this.initialised = true;
     this.syncActive = setInterval(() => this.syncToDisk(), 500);
   }
 
   async syncToDisk(): Promise<void> {
+    if(!this.rootPath) {
+      throw new Error("Cloudinary local storage root path not set")
+    }
+
     if (!this.mappingsInMemory.isDirty) return;
     const mappingsCopy = { ...this.mappingsInMemory, isDirty: false };
+
     const tempPath = path.join(this.rootPath, "uploads.json.tmp");
     const originalPath = path.join(this.rootPath, "uploads.json");
+
     await fs.writeFile(tempPath, JSON.stringify(mappingsCopy));
     await fs.rename(tempPath, originalPath);
+
     this.mappingsInMemory.isDirty = false;
   }
 
@@ -59,16 +80,27 @@ class OfflineCloudinary {
    */
   async upload(
     tempFilePath: string,
-    options: UploadOptions,
+    options?: UploadOptions,
   ): Promise<CloudinaryResponse> {
-    const portNumber = process.env.CLOUDINARY_OFFLINE_PORT || 3500;
+    if(!this.rootPath) {
+      throw new Error("Cloudinary local storage root path not set")
+    }
+
+    const portNumber = this.port;
+
+    if (!portNumber) {
+      throw new Error("Cloudinary local server port not set")
+    }
+
     await fs.access(tempFilePath).catch(() => {
       throw new Error(`File not found: ${tempFilePath}`);
     });
-    const resourceTypeCleaned: ResourceType = options.resource_type || "image";
+
+    const resourceTypeCleaned: ResourceType = options?.resource_type || "image";
     const isValid = await checkFileValidity(tempFilePath, resourceTypeCleaned);
+
     if (!isValid) throw new Error("Invalid resource type");
-    const folder = options.folder || "";
+    const folder = options?.folder || "";
     const name = options?.fileName || crypto.randomUUID();
     const fullFolderPath = path.join(this.rootPath, folder);
 
@@ -78,16 +110,17 @@ class OfflineCloudinary {
     // Generate unique filename
     const ext = path.extname(tempFilePath);
     const fileType = await fileTypeFromFile(tempFilePath);
+    
     if (!ext?.trim() || !fileType?.ext)
       throw new Error("Unsupported file type");
     const fileName = name + ext;
 
     const finalPath = path.join(fullFolderPath, fileName);
 
-    const info = await getFileInfo(finalPath);
-
     // Copy file from temp path
     await fs.copyFile(tempFilePath, finalPath);
+    
+    const info = await getFileInfo(finalPath);
 
     // Get file stats
     const stats = await fs.stat(finalPath);
@@ -151,6 +184,10 @@ class OfflineCloudinary {
    * @returns {result: ok} if successful
    */
   async clearStorage(): Promise<{ result: string }> {
+    if(!this.rootPath) {
+      throw new Error("Root path not set")
+    }
+
     await fs.rm(this.rootPath, { recursive: true, force: true });
     await fs.mkdir(this.rootPath);
     this.mappingsInMemory = { uploads: {}, isDirty: false };

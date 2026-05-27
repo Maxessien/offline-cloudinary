@@ -26,4 +26,5 @@ const checkFileValidity = async (
   return valid;
 };
 
-export { getFileInfo, checkFileValidity };
+export { checkFileValidity, getFileInfo };
+

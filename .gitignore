@@ -34,3 +34,4 @@ logs/
 # Coverage / test output
 coverage/
 
+test.ts
