@@ -17,8 +17,8 @@ import { checkFileValidity, getFileInfo } from "./fileHandlers.js";
 class OfflineCloudinary {
   private rootPath: string | null;
   private initialised: boolean;
-  private mappingsInMemory: MappingsInMemory;
   private port: number | null
+  mappingsInMemory: MappingsInMemory;
   syncActive: NodeJS.Timeout | false;
 
   constructor(port?: number) {
