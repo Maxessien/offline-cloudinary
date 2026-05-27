@@ -255,6 +255,10 @@ import { startEmulator, offlineCloudinary } from "offline-cloudinary";
 
 startEmulator(); // Start the HTTP server
 
+// or pass a port number parameter
+
+startEmulator(3000)
+
 const result = await offlineCloudinary.upload("./photo.jpg");
 // result.public_id is now a UUID
 // result.url is "http://localhost:3000/file/{uuid}"
