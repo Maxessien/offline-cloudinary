@@ -6,12 +6,13 @@ An **offline Cloudinary-like file manager** for Node.js — designed for develop
 
 ## Features
 
-- Local file uploads and deletions with HTTP server emulator
-- Cloudinary-style API responses  
-- Simple environment-based configuration  
-- Built-in Express server to serve uploaded files via HTTP
-- Clear all stored uploads with one command  
-- Perfect for testing, prototyping, or offline development  
+* Local file uploads and deletions with HTTP server emulator
+* Cloudinary-style API responses
+* Simple environment-based or programmatic configuration
+* Built-in Express server to serve uploaded files via HTTP
+* Clear all stored uploads with one command
+* Friendly validation and error messages
+* Perfect for testing, prototyping, or offline development
 
 ---
 
@@ -31,15 +32,28 @@ yarn add offline-cloudinary
 
 ## Setup
 
-In your project's `.env` file, define the configuration for offline uploads:
+You can configure Offline Cloudinary using either:
+
+* Environment variables
+* Programmatic configuration methods
+
+---
+
+## Environment Configuration
+
+In your project's `.env` file:
 
 ```env
 CLOUDINARY_OFFLINE_PATH=./offline_uploads
 CLOUDINARY_OFFLINE_PORT=3000
 ```
 
-- **`CLOUDINARY_OFFLINE_PATH`**: Base directory where uploaded files will be stored
-- **`CLOUDINARY_OFFLINE_PORT`**: Port number for the HTTP server emulator
+### Environment Variables
+
+| Variable                  | Description                                        |
+| ------------------------- | -------------------------------------------------- |
+| `CLOUDINARY_OFFLINE_PATH` | Base directory where uploaded files will be stored |
+| `CLOUDINARY_OFFLINE_PORT` | Port number for the HTTP emulator server           |
 
 ---
 
@@ -48,7 +62,7 @@ CLOUDINARY_OFFLINE_PORT=3000
 ```js
 import { startEmulator, offlineCloudinary } from "offline-cloudinary";
 
-// Start the HTTP server to serve uploaded files
+// Start the HTTP server
 startEmulator();
 
 (async () => {
@@ -60,18 +74,18 @@ startEmulator();
     });
 
     console.log("Upload result:", uploadResult);
-    // uploadResult.url: "http://localhost:3000/file/{uuid}"
-    // uploadResult.public_id: UUID identifier
 
-    // Access the file via HTTP
+    // Access the uploaded file
     console.log(`View file at: ${uploadResult.url}`);
 
     // Delete the uploaded file
     const deleteResult = await offlineCloudinary.destroy(uploadResult.public_id);
+
     console.log("Delete result:", deleteResult);
 
-    // Clear all files in the storage folder
+    // Clear all stored files
     const clearResult = await offlineCloudinary.clearStorage();
+
     console.log("Storage cleared:", clearResult);
   } catch (err) {
     console.error("Error:", err.message);
@@ -81,129 +95,229 @@ startEmulator();
 
 ---
 
-## API Reference
+# Programmatic Configuration
 
-### **`startEmulator()`**
+You can configure the storage path and server port directly in code without using environment variables.
 
-Starts the Express HTTP server to serve uploaded files.
+---
 
-**Important**: Must be called to enable HTTP access to uploaded files via the `url` field.
+## `offlineCloudinary.setRootPath(path)`
 
-**Environment Variables Required:**
-- `CLOUDINARY_OFFLINE_PORT` - Port number for the server
+Sets the root directory where uploaded files will be stored.
 
-**Example:**
+### Parameters
+
+| Name   | Type     | Description           |
+| ------ | -------- | --------------------- |
+| `path` | `string` | Root upload directory |
+
+### Example
+
 ```js
-import { startEmulator } from "offline-cloudinary";
+import { offlineCloudinary } from "offline-cloudinary";
 
-startEmulator();
-// Server running on port specified in CLOUDINARY_OFFLINE_PORT
+offlineCloudinary.setRootPath("./offline_uploads");
 ```
 
 ---
 
-### **`offlineCloudinary`**
+## `offlineCloudinary.setPort(port)`
 
-The main instance for file operations. Automatically instantiated when imported.  
-Throws an error if `CLOUDINARY_OFFLINE_PATH` is not set.
+Sets the port used to generate HTTP file URLs.
+
+### Parameters
+
+| Name   | Type     | Description          |
+| ------ | -------- | -------------------- |
+| `port` | `number` | Emulator server port |
+
+### Example
+
+```js
+import { offlineCloudinary } from "offline-cloudinary";
+
+offlineCloudinary.setPort(3000);
+```
 
 ---
 
-### **`offlineCloudinary.upload(tempFilePath, options)`**
+# API Reference
 
-Uploads a file from a temporary path to your offline storage.
+## `startEmulator(port?, offlineRootPath?)`
 
-**Environment Variables Required:**
-- `CLOUDINARY_OFFLINE_PORT` - Used to generate the HTTP URL
+Starts the Express HTTP server used to serve uploaded files.
 
-**Parameters**
-| Name | Type | Description |
-|------|------|--------------|
-| `tempFilePath` | `string` | Path to the source file to upload |
-| `options.folder` | `string` | Optional nested folder path |
-| `options.fileName` | `string` | Optional custom file name (without extension) |
+### Parameters
 
-**Returns**
+| Name              | Type     | Description                       |
+| ----------------- | -------- | --------------------------------- |
+| `port`            | `number` | Optional custom server port       |
+| `offlineRootPath` | `string` | Optional custom storage directory |
 
-A Cloudinary-like object containing:
+### Notes
+
+* If `port` is not provided, the emulator uses `CLOUDINARY_OFFLINE_PORT`
+* If `offlineRootPath` is not provided, the emulator uses `CLOUDINARY_OFFLINE_PATH`
+* Must be called to access uploaded files via HTTP URLs
+
+### Example
+
+```js
+import { startEmulator } from "offline-cloudinary";
+
+// Uses environment variables
+startEmulator();
+
+// Custom port
+startEmulator(3000);
+
+// Custom port and storage path
+startEmulator(3000, "./offline_uploads");
+```
+
+---
+
+## `offlineCloudinary`
+
+The main instance used for file operations.
+
+You can configure it using:
+
+* Environment variables
+* `setRootPath()`
+* `setPort()`
+
+If required configuration is missing, methods throw friendly validation errors explaining what needs to be configured.
+
+---
+
+## `offlineCloudinary.upload(tempFilePath, options?)`
+
+Uploads a file from a temporary path into offline storage.
+
+### Parameters
+
+| Name               | Type     | Description                                 |
+| ------------------ | -------- | ------------------------------------------- |
+| `tempFilePath`     | `string` | Path to the source file                     |
+| `options.folder`   | `string` | Optional nested folder path                 |
+| `options.fileName` | `string` | Optional custom file name without extension |
+
+### Returns
+
 ```js
 {
   asset_id: "uuid-v4",
-  public_id: "uuid-v4",           // UUID identifier for this file
-  version: 1702654321000,          // Timestamp
+  public_id: "uuid-v4",
+  version: 1702654321000,
   version_id: "uuid-v4",
   signature: "hex-string",
-  width: 1920,                     // May be null if dimensions are unavailable
-  height: 1080,                    // May be null if dimensions are unavailable
-  format: "jpg",                   // File extension
+  width: 1920,
+  height: 1080,
+  format: "jpg",
   resource_type: "image",
   created_at: "2025-12-15T10:30:00.000Z",
   tags: [],
   pages: 1,
-  bytes: 102400,                   // File size in bytes
+  bytes: 102400,
   type: "upload",
   etag: "hex-string",
   placeholder: false,
-  url: "http://localhost:3000/file/{uuid}",      // HTTP URL to access file
-  secure_url: "http://localhost:3000/file/{uuid}" // Mirrors URL in offline mode
+  url: "http://localhost:3000/file/{uuid}",
+  secure_url: "http://localhost:3000/file/{uuid}"
 }
 ```
 
-**Example:**
+### Example
+
 ```js
+// Upload with options
 const result = await offlineCloudinary.upload("./photo.jpg", {
   folder: "users/avatars",
   fileName: "profile-pic"
 });
 
-console.log(result.url);        // "http://localhost:3000/file/abc123..."
-console.log(result.public_id);  // "abc123-def456-789..."
+// Upload without options
+const simpleUpload = await offlineCloudinary.upload("./photo.jpg");
+
+console.log(result.url);
+console.log(result.public_id);
 ```
 
 ---
 
-### **`offlineCloudinary.destroy(public_id)`**
+## `offlineCloudinary.destroy(public_id)`
 
-Deletes a file from your offline storage using its UUID.
+Deletes a file from offline storage using its UUID.
 
-**Parameters**
-| Name | Type | Description |
-|------|------|--------------|
-| `public_id` | `string` | UUID returned by the upload method |
+### Parameters
 
-**Returns**
+| Name        | Type     | Description               |
+| ----------- | -------- | ------------------------- |
+| `public_id` | `string` | UUID returned from upload |
+
+### Returns
+
 ```js
 { result: "ok" }
-// or
+```
+
+or
+
+```js
 { result: "not found" }
 ```
 
-**Example:**
+### Example
+
 ```js
 const uploadResult = await offlineCloudinary.upload("./photo.jpg");
+
 await offlineCloudinary.destroy(uploadResult.public_id);
 ```
 
 ---
 
-### **`offlineCloudinary.clearStorage()`**
+## `offlineCloudinary.clearStorage()`
 
-Deletes all files and folders in your offline Cloudinary storage.
+Deletes all files and folders inside the offline storage directory.
 
-**Returns**
+### Returns
+
 ```js
 { result: "ok" }
 ```
 
-**Example:**
+### Example
+
 ```js
 await offlineCloudinary.clearStorage();
+
 console.log("All files deleted");
 ```
 
 ---
 
-## Example .env
+# Error Handling
+
+Offline Cloudinary performs validation checks and throws friendly error messages when required configuration or parameters are missing.
+
+### Examples
+
+```js
+// Missing root path
+Error: CLOUDINARY_OFFLINE_PATH is not configured
+
+// Missing port
+Error: CLOUDINARY_OFFLINE_PORT is not configured
+
+// Invalid upload path
+Error: File does not exist
+```
+
+---
+
+# Example `.env`
 
 ```env
 CLOUDINARY_OFFLINE_PATH=./uploads
@@ -212,12 +326,12 @@ CLOUDINARY_OFFLINE_PORT=3000
 
 ---
 
-## Example Folder Structure
+# Example Folder Structure
 
-```
+```txt
 project/
 ├── .env
-├── uploads.json                    # Auto-generated UUID mapping
+├── uploads.json
 ├── uploads/
 │   └── users/
 │       └── avatars/
@@ -227,65 +341,74 @@ project/
 
 ---
 
-## Migration from v1.x to v2.x
+# Migration from v1.x to v2.x
 
-### Breaking Changes
+## Breaking Changes
 
-1. **New environment variable required**: `CLOUDINARY_OFFLINE_PORT`
-2. **Import changed**: Now exports `{ startEmulator, offlineCloudinary }` instead of default export
-3. **public_id format**: Now returns UUID instead of file path
-4. **URL field**: Now returns HTTP endpoint instead of file path
-5. **Must call startEmulator()** to serve files via HTTP
+1. New environment variable introduced: `CLOUDINARY_OFFLINE_PORT`
+2. Import changed from default export to named exports
+3. `public_id` now returns UUID instead of file path
+4. `url` and `secure_url` now return HTTP endpoints
+5. `startEmulator()` must be called for HTTP access
 
-### Migration Steps
+---
 
-**Before (v1.x):**
+## Before (v1.x)
+
 ```js
 import offlineCloudinary from "offline-cloudinary";
 
 const result = await offlineCloudinary.upload("./photo.jpg");
-// result.public_id was a file path
+
+// public_id was a file path
 ```
 
-**After (v2.x):**
+---
+
+## After (v2.x)
+
 ```js
 import { startEmulator, offlineCloudinary } from "offline-cloudinary";
 
-// Add CLOUDINARY_OFFLINE_PORT=3000 to your .env
+// Optional environment configuration
+// CLOUDINARY_OFFLINE_PORT=3000
 
-startEmulator(); // Start the HTTP server
+startEmulator();
 
-// or pass a port number parameter
+// or
+startEmulator(3000);
 
-startEmulator(3000)
+// or
+startEmulator(3000, "./uploads");
 
 const result = await offlineCloudinary.upload("./photo.jpg");
-// result.public_id is now a UUID
-// result.url is "http://localhost:3000/file/{uuid}"
-// result.secure_url is "http://localhost:3000/file/{uuid}"
+
+// public_id is now a UUID
+// url is now an HTTP endpoint
 ```
 
 ---
 
-## Author
+# Author
 
-**Max Essien**  
-📍 Lagos, Nigeria  
-🔗 [GitHub: @MaxEssien](https://github.com/MaxEssien)
+**Max Essien**
+📍 Lagos, Nigeria
+🔗 GitHub: @MaxEssien
 
 ---
 
-## License
+# License
 
 This project is licensed under the **MIT License** — free for personal and commercial use.
 
 ---
 
-## Changelog
+# Changelog
 
-See [CHANGELOG.md](./CHANGELOG.md) for version history and migration guides.
+See `CHANGELOG.md` for release history and migration guides.
 
 ---
 
-**Offline Cloudinary** — your Cloudinary, anywhere, even offline.
+# Offline Cloudinary
 
+Your Cloudinary, anywhere, even offline.
